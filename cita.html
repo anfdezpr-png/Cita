@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>¿Tendrías una cita?</title>
+<style>
+  :root{
+    --pink:#ff7ec0;
+    --pink-deep:#ff4fa3;
+    --purple:#8a5cff;
+    --purple-deep:#6d3bd6;
+    --ink:#3a1f52;
+    --ink-soft:#6b4d82;
+    --card:rgba(255,255,255,0.92);
+    --radius:26px;
+    --shadow:0 18px 50px -12px rgba(94,40,140,.45), 0 6px 18px -8px rgba(94,40,140,.35);
+    --font: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", "Quicksand", "Comfortaa", "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:var(--font);
+    color:var(--ink);
+    background:linear-gradient(135deg,#ffd0ec 0%, #f7a8e0 28%, #c79bf0 62%, #9b7bf0 100%);
+    background-size:200% 200%;
+    animation:bgshift 16s ease infinite;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  @keyframes bgshift{0%{background-position:0% 0%}50%{background-position:100% 100%}100%{background-position:0% 0%}}
+
+  #stage{position:relative;z-index:1;height:100%;width:100%;}
+
+  .screen{
+    position:absolute;inset:0;
+    display:flex;align-items:center;justify-content:center;
+    padding:24px;
+    opacity:0;visibility:hidden;
+    transform:translateX(40px) scale(.98);
+    transition:opacity .55s ease, transform .55s cubic-bezier(.22,1,.36,1), visibility .55s;
+  }
+  .screen.active{opacity:1;visibility:visible;transform:translateX(0) scale(1);}
+  .screen.leaving{opacity:0;transform:translateX(-40px) scale(.98);}
+
+  .card{
+    width:min(440px,100%);
+    background:var(--card);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:34px 28px;
+    text-align:center;
+    backdrop-filter:blur(6px);
+    -webkit-backdrop-filter:blur(6px);
+  }
+
+  h1{font-size:clamp(26px,7vw,38px);line-height:1.15;margin:0 0 26px;font-weight:800;letter-spacing:-.5px;}
+  h2{font-size:clamp(22px,6vw,30px);margin:0 0 4px;font-weight:800;letter-spacing:-.4px;}
+  .sub{color:var(--ink-soft);font-size:15px;margin:0 0 22px;font-weight:600;}
+
+  /* buttons */
+  .btn{
+    border:none;cursor:pointer;font-family:inherit;font-weight:800;
+    border-radius:999px;padding:15px 30px;font-size:17px;color:#fff;
+    background:linear-gradient(135deg,var(--pink-deep),var(--purple));
+    box-shadow:0 10px 22px -8px rgba(140,60,200,.6);
+    transition:transform .12s ease, box-shadow .2s ease, filter .2s ease;
+  }
+  .btn:active{transform:scale(.96);}
+  .btn:hover{filter:brightness(1.05);}
+  .btn:focus-visible{outline:3px solid #fff;outline-offset:3px;}
+  .btn.ghost{background:#fff;color:var(--purple-deep);box-shadow:0 8px 18px -10px rgba(140,60,200,.5);border:2px solid rgba(140,60,200,.18);}
+
+  .yesno{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;}
+  #yesBtn{min-width:120px;transition:transform .25s cubic-bezier(.22,1.4,.4,1), filter .2s ease;transform-origin:center;}
+  #noBtn{
+    min-width:120px;background:linear-gradient(135deg,#9aa0b5,#6f7591);
+    transition:transform .18s cubic-bezier(.22,1,.36,1), left .18s cubic-bezier(.22,1,.36,1), top .18s cubic-bezier(.22,1,.36,1);
+    z-index:50;
+  }
+
+  /* calendar */
+  .cal{background:#fff;border-radius:20px;padding:14px;box-shadow:inset 0 0 0 1px rgba(140,60,200,.1);margin-bottom:20px;}
+  .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .cal-head .mlabel{font-weight:800;font-size:16px;text-transform:capitalize;}
+  .nav{width:38px;height:38px;border-radius:50%;border:none;background:#f3ecff;color:var(--purple-deep);font-size:18px;font-weight:800;cursor:pointer;transition:background .15s;}
+  .nav:hover{background:#e6d8ff;}
+  .nav:disabled{opacity:.3;cursor:not-allowed;}
+  .dow{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px;}
+  .dow span{font-size:11px;font-weight:800;color:var(--ink-soft);text-align:center;}
+  .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+  .day{aspect-ratio:1;border:none;border-radius:12px;background:transparent;font-family:inherit;font-weight:700;font-size:14px;color:var(--ink);cursor:pointer;transition:background .12s,transform .1s;}
+  .day:hover:not(:disabled){background:#f3ecff;}
+  .day:disabled{color:#c9bcd6;cursor:not-allowed;}
+  .day.sel{background:linear-gradient(135deg,var(--pink-deep),var(--purple));color:#fff;transform:scale(1.04);box-shadow:0 6px 14px -6px rgba(140,60,200,.6);}
+
+  /* time picker */
+  .time{display:flex;align-items:center;justify-content:center;gap:18px;margin-bottom:24px;}
+  .unit{display:flex;flex-direction:column;align-items:center;gap:6px;}
+  .unit .val{font-size:34px;font-weight:800;min-width:64px;background:#fff;border-radius:16px;padding:8px 0;box-shadow:inset 0 0 0 1px rgba(140,60,200,.12);font-variant-numeric:tabular-nums;}
+  .unit .lbl{font-size:11px;font-weight:800;color:var(--ink-soft);text-transform:uppercase;letter-spacing:1px;}
+  .stepper{display:flex;gap:8px;}
+  .step{width:36px;height:36px;border-radius:50%;border:none;background:#f3ecff;color:var(--purple-deep);font-size:20px;font-weight:800;cursor:pointer;line-height:1;transition:background .15s,transform .1s;}
+  .step:hover{background:#e6d8ff;}
+  .step:active{transform:scale(.9);}
+  .colon{font-size:30px;font-weight:800;color:var(--ink-soft);margin-top:-18px;}
+
+  /* food grid */
+  .foods{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;}
+  .food{background:#fff;border:2px solid transparent;border-radius:18px;padding:16px 6px 12px;cursor:pointer;font-family:inherit;transition:transform .12s,border-color .15s,box-shadow .15s;display:flex;flex-direction:column;align-items:center;gap:6px;}
+  .food .emo{font-size:32px;line-height:1;}
+  .food .name{font-size:13px;font-weight:800;color:var(--ink);}
+  .food:hover{transform:translateY(-3px);box-shadow:0 10px 20px -10px rgba(140,60,200,.4);}
+  .food.sel{border-color:var(--pink-deep);box-shadow:0 10px 22px -10px rgba(255,79,163,.6);transform:translateY(-3px);}
+  .food.sel .name{color:var(--pink-deep);}
+
+  .next-wrap{margin-top:4px;}
+  .next-wrap .btn[disabled]{opacity:.45;cursor:not-allowed;filter:grayscale(.3);}
+
+  /* confirmation */
+  .big-emoji{font-size:64px;margin-bottom:8px;animation:pop .6s cubic-bezier(.22,1.4,.4,1) both;}
+  @keyframes pop{from{transform:scale(0)}to{transform:scale(1)}}
+  .recap{background:#fff;border-radius:18px;padding:18px;margin:18px 0 8px;text-align:left;box-shadow:inset 0 0 0 1px rgba(140,60,200,.1);}
+  .recap .row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid #f0e8fb;font-weight:700;}
+  .recap .row:last-child{border-bottom:none;}
+  .recap .ri{font-size:22px;width:28px;text-align:center;}
+  .recap .rk{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:1px;display:block;font-weight:800;}
+  .recap .rv{font-size:15px;}
+
+  #confetti{position:fixed;inset:0;pointer-events:none;z-index:999;}
+
+  @media (max-width:380px){
+    .card{padding:26px 18px;}
+    .foods{gap:8px;}
+    .time{gap:10px;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.001s!important;transition-duration:.12s!important;}
+  }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <!-- SCREEN 1 -->
+    <section class="screen active" id="s1">
+      <div class="card">
+        <h1>¿Tendrías una cita<br>conmigo?</h1>
+        <div class="yesno">
+          <button class="btn" id="yesBtn">Sí</button>
+          <button class="btn" id="noBtn">No</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN 2 -->
+    <section class="screen" id="s2">
+      <div class="card">
+        <h2>¿Disponibilidad?</h2>
+        <p class="sub">Elige día y hora</p>
+
+        <div class="cal">
+          <div class="cal-head">
+            <button class="nav" id="prevM" aria-label="Mes anterior">‹</button>
+            <span class="mlabel" id="mlabel"></span>
+            <button class="nav" id="nextM" aria-label="Mes siguiente">›</button>
+          </div>
+          <div class="dow"><span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
+          <div class="grid" id="calGrid"></div>
+        </div>
+
+        <div class="time">
+          <div class="unit">
+            <div class="stepper"><button class="step" data-h="1">+</button></div>
+            <div class="val" id="hVal">20</div>
+            <div class="stepper"><button class="step" data-h="-1">−</button></div>
+            <div class="lbl">hora</div>
+          </div>
+          <div class="colon">:</div>
+          <div class="unit">
+            <div class="stepper"><button class="step" data-m="15">+</button></div>
+            <div class="val" id="mVal">30</div>
+            <div class="stepper"><button class="step" data-m="-15">−</button></div>
+            <div class="lbl">min</div>
+          </div>
+        </div>
+
+        <button class="btn" id="toFood">Siguiente →</button>
+      </div>
+    </section>
+
+    <!-- SCREEN 3 -->
+    <section class="screen" id="s3">
+      <div class="card">
+        <h2>¿Qué te apetece comer?</h2>
+        <p class="sub">Elige una opción</p>
+        <div class="foods" id="foods">
+          <button class="food" data-food="Italiana"><span class="emo">🍝</span><span class="name">Italiana</span></button>
+          <button class="food" data-food="Japonesa"><span class="emo">🍣</span><span class="name">Japonesa</span></button>
+          <button class="food" data-food="Mexicana"><span class="emo">🌮</span><span class="name">Mexicana</span></button>
+          <button class="food" data-food="Americana"><span class="emo">🍔</span><span class="name">Americana</span></button>
+          <button class="food" data-food="Española"><span class="emo">🥘</span><span class="name">Española</span></button>
+          <button class="food" data-food="Todo"><span class="emo">🍽️</span><span class="name">Todo</span></button>
+        </div>
+        <div class="next-wrap">
+          <button class="btn" id="confirm" disabled>¡Confirmar cita! 🎉</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN 4 -->
+    <section class="screen" id="s4">
+      <div class="card">
+        <div class="big-emoji">🎉</div>
+        <h2>¡Es una cita!</h2>
+        <p class="sub" id="confMsg"></p>
+        <div class="recap">
+          <div class="row"><span class="ri">📅</span><span><span class="rk">Día</span><span class="rv" id="rDate"></span></span></div>
+          <div class="row"><span class="ri">🕐</span><span><span class="rk">Hora</span><span class="rv" id="rTime"></span></span></div>
+          <div class="row"><span class="ri">🍴</span><span><span class="rk">Comida</span><span class="rv" id="rFood"></span></span></div>
+        </div>
+        <p class="sub" id="sendStatus" style="margin-top:14px;min-height:1.1em;color:var(--purple-deep)">Enviando la cita…</p>
+        <p class="sub" style="margin-top:2px">Nos vemos ahí.</p>
+      </div>
+    </section>
+  </div>
+
+  <canvas id="confetti"></canvas>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ====== CONFIGURA AQUÍ A DÓNDE TE LLEGA LA CITA ====== */
+  const CONFIG={
+    channel:'email',               // 'whatsapp'  o  'email'
+    whatsapp:'34XXXXXXXXX',        // tu nº con prefijo de país, sin + ni espacios (España = 34)
+    email:'anfdezpr@gmail.com',    // se usa con el respaldo FormSubmit
+    // RECOMENDADO para email fiable y sin activar nada:
+    //   1) entra en https://web3forms.com  2) escribe tu correo  3) te llega un "access key"
+    //   4) pégalo aquí abajo. El correo llega a la dirección de ese key.
+    web3key:'a30686ba-9d1d-4ea2-a36c-54438ec67d10'
+  };
+  /* ===================================================== */
+
+  /* ---------- screen router ---------- */
+  const screens={s1:el('s1'),s2:el('s2'),s3:el('s3'),s4:el('s4')};
+  function el(id){return document.getElementById(id);}
+  function go(toId){
+    const current=document.querySelector('.screen.active');
+    if(current && current.id===toId) return;
+    if(current){
+      current.classList.add('leaving');
+      current.classList.remove('active');
+      setTimeout(()=>current.classList.remove('leaving'),600);
+    }
+    screens[toId].classList.add('active');
+    var nb=document.getElementById('noBtn');
+    if(nb) nb.style.display=(toId==='s1')?'':'none';
+  }
+
+  /* ---------- state ---------- */
+  const state={date:null,hour:20,min:30,food:null};
+
+  /* ---------- evasive NO button ---------- */
+  const noBtn=el('noBtn');
+  const yesBtn=el('yesBtn');
+  let pinned=false;
+  let yesScale=1;
+  let lastX=0,lastY=0;
+  function growYes(){
+    yesScale=Math.min(yesScale+0.18,1.9);
+    yesBtn.style.transform='scale('+yesScale+')';
+  }
+  function vp(){
+    const v=window.visualViewport;
+    return v ? {w:v.width,h:v.height} : {w:window.innerWidth,h:window.innerHeight};
+  }
+  function area(){
+    const m=14, bw=noBtn.offsetWidth||120, bh=noBtn.offsetHeight||48, v=vp();
+    return {m, maxX:Math.max(m,v.w-bw-m), maxY:Math.max(m,v.h-bh-m)};
+  }
+  function setNo(x,y){
+    const a=area();
+    lastX=Math.min(Math.max(a.m,x),a.maxX);
+    lastY=Math.min(Math.max(a.m,y),a.maxY);
+    noBtn.style.left=lastX+'px';
+    noBtn.style.top =lastY+'px';
+  }
+  function moveNo(){
+    growYes();
+    if(!pinned){
+      const r=noBtn.getBoundingClientRect();
+      noBtn.style.position='fixed';
+      noBtn.style.margin='0';
+      noBtn.style.width=r.width+'px';
+      // sacarlo de la tarjeta (que tiene transform): así 'fixed' es respecto al viewport real
+      document.body.appendChild(noBtn);
+      lastX=r.left; lastY=r.top;
+      pinned=true;
+    }
+    const a=area();
+    setNo(a.m+Math.random()*(a.maxX-a.m), a.m+Math.random()*(a.maxY-a.m));
+  }
+  // si cambia el viewport (rotar, barra de Safari, resize) lo reencuadramos dentro de lo visible
+  window.addEventListener('resize',()=>{ if(pinned) setNo(lastX,lastY); });
+  if(window.visualViewport){ window.visualViewport.addEventListener('resize',()=>{ if(pinned) setNo(lastX,lastY); }); }
+  // desktop: flee on hover and on any pointer approach
+  noBtn.addEventListener('mouseenter',moveNo);
+  noBtn.addEventListener('mousemove',moveNo);
+  // mobile: flee the instant a finger lands, cancel the would-be tap
+  noBtn.addEventListener('touchstart',function(e){e.preventDefault();moveNo();},{passive:false});
+  // if somehow clicked: move and do nothing
+  noBtn.addEventListener('click',function(e){e.preventDefault();moveNo();});
+  // keyboard fairness: focusing it also makes it bolt
+  noBtn.addEventListener('focus',moveNo);
+
+  /* ---------- YES ---------- */
+  el('yesBtn').addEventListener('click',()=>{ buildCalendar(); go('s2'); });
+
+  /* ---------- calendar ---------- */
+  const calGrid=el('calGrid'), mlabel=el('mlabel');
+  const today=new Date(); today.setHours(0,0,0,0);
+  let viewY=today.getFullYear(), viewM=today.getMonth();
+  const MONTHS=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+  function buildCalendar(){
+    calGrid.innerHTML='';
+    mlabel.textContent=MONTHS[viewM]+' '+viewY;
+    const first=new Date(viewY,viewM,1);
+    // make Monday=0
+    let lead=(first.getDay()+6)%7;
+    const daysIn=new Date(viewY,viewM+1,0).getDate();
+    for(let i=0;i<lead;i++){const b=document.createElement('div');calGrid.appendChild(b);}
+    for(let d=1;d<=daysIn;d++){
+      const btn=document.createElement('button');
+      btn.className='day';btn.textContent=d;
+      const cellDate=new Date(viewY,viewM,d);
+      if(cellDate<today){btn.disabled=true;}
+      if(state.date && sameDay(cellDate,state.date)){btn.classList.add('sel');}
+      btn.addEventListener('click',()=>{
+        state.date=cellDate;
+        [...calGrid.querySelectorAll('.day.sel')].forEach(x=>x.classList.remove('sel'));
+        btn.classList.add('sel');
+      });
+      calGrid.appendChild(btn);
+    }
+    // disable prev nav if it would go before this month
+    el('prevM').disabled = (viewY===today.getFullYear() && viewM===today.getMonth());
+  }
+  function sameDay(a,b){return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();}
+  el('prevM').addEventListener('click',()=>{ if(viewM===0){viewM=11;viewY--;}else viewM--; buildCalendar(); });
+  el('nextM').addEventListener('click',()=>{ if(viewM===11){viewM=0;viewY++;}else viewM++; buildCalendar(); });
+
+  /* ---------- time ---------- */
+  const hVal=el('hVal'), mVal=el('mVal');
+  function pad(n){return String(n).padStart(2,'0');}
+  function renderTime(){hVal.textContent=pad(state.hour);mVal.textContent=pad(state.min);}
+  document.querySelectorAll('.step').forEach(b=>{
+    b.addEventListener('click',()=>{
+      if(b.dataset.h){state.hour=(state.hour+parseInt(b.dataset.h)+24)%24;}
+      if(b.dataset.m){
+        let total=state.hour*60+state.min+parseInt(b.dataset.m);
+        total=(total+1440)%1440;
+        state.hour=Math.floor(total/60);state.min=total%60;
+      }
+      renderTime();
+    });
+  });
+  renderTime();
+
+  /* ---------- to food ---------- */
+  el('toFood').addEventListener('click',()=>{
+    if(!state.date){
+      // gentle nudge: flash the calendar
+      const c=document.querySelector('.cal');
+      c.animate([{boxShadow:'0 0 0 2px var(--pink-deep)'},{boxShadow:'inset 0 0 0 1px rgba(140,60,200,.1)'}],{duration:600});
+      return;
+    }
+    go('s3');
+  });
+
+  /* ---------- food grid ---------- */
+  const confirmBtn=el('confirm');
+  document.querySelectorAll('.food').forEach(f=>{
+    f.addEventListener('click',()=>{
+      document.querySelectorAll('.food.sel').forEach(x=>x.classList.remove('sel'));
+      f.classList.add('sel');
+      state.food=f.dataset.food;
+      confirmBtn.disabled=false;
+    });
+  });
+
+  /* ---------- confirm ---------- */
+  const DOW=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  confirmBtn.addEventListener('click',()=>{
+    if(!state.food) return;
+    const d=state.date;
+    const dateStr=DOW[d.getDay()]+', '+d.getDate()+' de '+MONTHS[d.getMonth()]+' de '+d.getFullYear();
+    const timeStr=pad(state.hour)+':'+pad(state.min);
+    el('rDate').textContent=cap(dateStr);
+    el('rTime').textContent=timeStr+'h';
+    el('rFood').textContent=foodLabel(state.food);
+    el('confMsg').textContent='El '+dateStr+' a las '+timeStr+'h, comida '+state.food.toLowerCase()+'. Hecho.';
+    lastMessage='Nueva cita confirmada:\n\n'
+      +'📅 '+cap(dateStr)+'\n'
+      +'🕐 '+timeStr+'h\n'
+      +'🍴 '+foodLabel(state.food);
+    go('s4');
+    setTimeout(fireConfetti,250);
+    sendDate();
+  });
+
+  /* ---------- delivery (automática, sin botón) ---------- */
+  let lastMessage='';
+  function sendDate(){
+    const status=el('sendStatus');
+    if(CONFIG.channel==='whatsapp'){
+      const num=CONFIG.whatsapp.replace(/\D/g,'');
+      if(!num || /X/i.test(CONFIG.whatsapp)){status.textContent='Configura tu número en CONFIG.whatsapp.';return;}
+      window.open('https://wa.me/'+num+'?text='+encodeURIComponent(lastMessage),'_blank');
+      status.textContent='Cita enviada por WhatsApp.';
+      return;
+    }
+    status.textContent='Enviando la cita…';
+    // 1) Web3Forms (preferido: no necesita activación)
+    if(CONFIG.web3key && !/PEGA_AQUI/i.test(CONFIG.web3key)){
+      fetch('https://api.web3forms.com/submit',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Accept':'application/json'},
+        body:JSON.stringify({access_key:CONFIG.web3key,subject:'Nueva cita confirmada',from_name:'Tu cita',message:lastMessage})
+      }).then(r=>r.json()).then(d=>{
+        status.textContent=(d && d.success) ? 'Cita enviada ✓' : ('No se pudo enviar: '+((d&&d.message)||'error'));
+      }).catch(()=>{ status.textContent='No se pudo enviar (¿lo abriste como archivo local? súbelo a https).'; });
+      return;
+    }
+    // 2) Respaldo: FormSubmit (requiere confirmar la primera vez)
+    if(!CONFIG.email || /ejemplo/i.test(CONFIG.email)){status.textContent='Configura tu Web3Forms key o tu correo.';return;}
+    fetch('https://formsubmit.co/ajax/'+encodeURIComponent(CONFIG.email),{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body:JSON.stringify({_subject:'Nueva cita confirmada',mensaje:lastMessage})
+    }).then(r=>r.json()).then(d=>{
+      status.textContent=(d && (d.success===true||d.success==='true')) ? 'Cita enviada ✓ (revisa la activación de FormSubmit)' : 'Enviado, pero FormSubmit pide activación: mira tu correo.';
+    }).catch(()=>{ status.textContent='No se pudo enviar (¿archivo local? súbelo a https).'; });
+  }
+  function cap(s){return s.charAt(0).toUpperCase()+s.slice(1);}
+  function foodLabel(f){
+    const m={Italiana:'🍝 Italiana',Japonesa:'🍣 Japonesa',Mexicana:'🌮 Mexicana',Americana:'🍔 Americana','Española':'🥘 Española',Todo:'🍽️ Todo'};
+    return m[f]||f;
+  }
+
+  /* ---------- canvas confetti (no dependencies) ---------- */
+  const cv=el('confetti'), ctx=cv.getContext('2d');
+  let parts=[],raf=null;
+  function resize(){cv.width=innerWidth;cv.height=innerHeight;}
+  resize(); addEventListener('resize',resize);
+  const COLORS=['#ff4fa3','#8a5cff','#ffd0ec','#ffffff','#ff7ec0','#c79bf0'];
+  function fireConfetti(){
+    parts=[];
+    for(let i=0;i<160;i++){
+      parts.push({
+        x:innerWidth/2+(Math.random()-.5)*120,
+        y:innerHeight/2-40,
+        vx:(Math.random()-.5)*14,
+        vy:Math.random()*-15-4,
+        g:0.32+Math.random()*0.2,
+        size:6+Math.random()*7,
+        rot:Math.random()*Math.PI,
+        vr:(Math.random()-.5)*0.3,
+        c:COLORS[(Math.random()*COLORS.length)|0],
+        life:0
+      });
+    }
+    if(raf)cancelAnimationFrame(raf);
+    loop();
+  }
+  function loop(){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    let alive=false;
+    parts.forEach(p=>{
+      p.vy+=p.g;p.x+=p.vx;p.y+=p.vy;p.rot+=p.vr;p.life++;
+      if(p.y<cv.height+40)alive=true;
+      ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot);
+      ctx.fillStyle=p.c;
+      ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size*0.6);
+      ctx.restore();
+    });
+    if(alive){raf=requestAnimationFrame(loop);}else{ctx.clearRect(0,0,cv.width,cv.height);}
+  }
+})();
+</script>
+</body>
+</html>
